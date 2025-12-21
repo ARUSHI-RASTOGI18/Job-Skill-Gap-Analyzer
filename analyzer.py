@@ -1,159 +1,96 @@
 import pandas as pd
-import json
 import re
-from collections import Counter
+from functools import lru_cache
+from sklearn.feature_extraction.text import TfidfVectorizer
+import numpy as np
 
-# =====================================================
-# STEP 4 — SKILL VOCABULARY (CORE NLP)
-# =====================================================
+# ---------------- SKILLS (CONTROLLED VOCAB) ----------------
 SKILLS = [
-    # Programming & Web
-    "python", "java", "c", "c++", "c#", "sql", "javascript", "typescript",
-    "html", "css", "react", "angular", "vue", "node", "spring", "django", "flask",
-
-    # Data / Analytics / ML
-    "excel", "power bi", "tableau", "pandas", "numpy", "statistics",
-    "machine learning", "deep learning", "data analysis", "data visualization",
-    "nlp", "scikit-learn", "tensorflow",
-
-    # Cloud / DevOps
-    "aws", "azure", "gcp", "docker", "kubernetes", "git", "github", "ci/cd",
-    "linux", "unix",
-
-    # IT Support / Systems
-    "windows", "networking", "troubleshooting", "active directory",
-    "technical support", "helpdesk", "system administration"
+    "python","java","sql","excel","power bi","tableau",
+    "pandas","numpy","statistics",
+    "machine learning","deep learning","tensorflow","scikit-learn",
+    "aws","azure","gcp","docker","kubernetes",
+    "git","github","linux","windows",
+    "networking","troubleshooting",
+    "html","css","javascript","react","angular","vue",
+    "django","flask","spring"
 ]
 
-def extract_skills(text):
-    if not isinstance(text, str):
-        return []
-    text = text.lower()
-    found = []
-    for skill in SKILLS:
-        if re.search(r"\b" + re.escape(skill) + r"\b", text):
-            found.append(skill)
-    return found
+# ---------------- ROLE NORMALIZATION ----------------
+CANONICAL_ROLES = {
+    "data analyst": ["data analyst","data analytics"],
+    "backend developer": ["backend","api developer"],
+    "frontend developer": ["frontend","ui developer"],
+    "full stack developer": ["full stack"],
+    "ml engineer": ["ml engineer","machine learning","ai engineer"],
+    "data engineer": ["data engineer","big data engineer"],
+    "devops engineer": ["devops","sre"],
+    "it support": ["it support","technical support","helpdesk"]
+}
 
+def normalize_role(title):
+    if not isinstance(title, str):
+        return None
+    title = title.lower()
+    title = re.sub(r"\b(senior|jr|junior|lead|intern)\b","",title)
+    for role, keys in CANONICAL_ROLES.items():
+        if any(k in title for k in keys):
+            return role
+    return None
 
-# =====================================================
-# USER PROFILE (STEP 5 / 6 INPUT)
-# =====================================================
-USER_SKILLS = {"python", "sql", "excel"}   # editable anytime
+# ---------------- ML: LEARN ROLE SKILLS ----------------
+def learn_role_skills(df):
+    df["role"] = df["job_title"].apply(normalize_role)
+    df = df[df["role"].notnull()]
 
+    vectorizer = TfidfVectorizer(vocabulary=SKILLS, lowercase=True)
+    role_profiles = {}
 
-# =====================================================
-# STEP 3 — DATA LOADING WITH UNIFORM SCHEMA
-# =====================================================
-
-# ---------- USA DATASET ----------
-usa_df = pd.read_csv("data/monster_jobs.csv")
-
-usa_core = usa_df[
-    ["job_title", "job_description", "location"]
-].rename(columns={"location": "city"}).copy()
-
-usa_core["skills"] = usa_core["job_description"].apply(extract_skills)
-
-
-# ---------- INDIA DATASET ----------
-records = []
-with open("data/india_jobs.ldjson", "r", encoding="utf-8") as f:
-    for line in f:
-        try:
-            records.append(json.loads(line))
-        except json.JSONDecodeError:
+    for role in df["role"].unique():
+        docs = df[df["role"] == role]["job_description"].dropna().tolist()
+        if len(docs) < 20:
             continue
 
-india_df = pd.DataFrame(records)
+        tfidf = vectorizer.fit_transform(docs)
+        scores = np.asarray(tfidf.mean(axis=0)).flatten()
 
-india_core = india_df[
-    ["job_title", "job_description", "city"]
-].copy()
+        ranked = sorted(
+            zip(vectorizer.get_feature_names_out(), scores),
+            key=lambda x: x[1],
+            reverse=True
+        )
 
-india_core["skills"] = india_core["job_description"].apply(extract_skills)
+        role_profiles[role] = [
+            skill for skill, score in ranked[:12] if score > 0
+        ]
 
+    return role_profiles
 
-# =====================================================
-# STEP 5 — SKILL GAP ANALYSIS (MARKET DEMAND)
-# =====================================================
+# ---------------- CACHE ROLE PROFILES ----------------
+@lru_cache(maxsize=2)
+def load_role_profiles():
+    usa = pd.read_pickle("data/usa_processed.pkl")
+    india = pd.read_pickle("data/india_processed.pkl")
+    return learn_role_skills(usa), learn_role_skills(india)
 
-usa_skills = []
-for skills in usa_core["skills"]:
-    usa_skills.extend(skills)
+# ---------------- MAIN FUNCTION ----------------
+def recommend_skills(user_skills, country, target_role):
+    usa_roles, india_roles = load_role_profiles()
+    roles = india_roles if country == "India" else usa_roles
 
-india_skills = []
-for skills in india_core["skills"]:
-    india_skills.extend(skills)
+    role = target_role.lower()
 
-usa_freq = Counter(usa_skills)
-india_freq = Counter(india_skills)
+    if role not in roles or not roles[role]:
+        return 0.0, [], []   # SAFE EMPTY RETURN
 
-combined_market_freq = usa_freq + india_freq
+    role_skills = set(roles[role])
 
+    matched = role_skills.intersection(user_skills)
+    missing = role_skills - matched
 
-# =====================================================
-# STEP 6 — LEARNING RECOMMENDATIONS
-# =====================================================
+    match_pct = round((len(matched) / len(role_skills)) * 100, 2)
 
-# Remove skills user already has
-for skill in USER_SKILLS:
-    combined_market_freq.pop(skill, None)
+    # Emerging skills intentionally disabled (Phase-2)
+    emerging = []
 
-TOP_N = 10
-recommendations = combined_market_freq.most_common(TOP_N)
-
-
-# =====================================================
-# OUTPUT SECTION (CLEAN & EXPLAINABLE)
-# =====================================================
-
-print("\n==============================")
-print("USER SKILLS")
-print("==============================")
-print(USER_SKILLS)
-
-print("\n==============================")
-print("TOP SKILLS IN USA MARKET")
-print("==============================")
-for skill, count in usa_freq.most_common(10):
-    print(f"{skill}: {count}")
-
-print("\n==============================")
-print("TOP SKILLS IN INDIA MARKET")
-print("==============================")
-for skill, count in india_freq.most_common(10):
-    print(f"{skill}: {count}")
-
-print("\n==============================")
-print("RECOMMENDED SKILLS TO LEARN (STEP 6 OUTPUT)")
-print("==============================")
-for i, (skill, count) in enumerate(recommendations, start=1):
-    print(f"{i}. {skill}  (market demand score: {count})")
-
-# =====================================================
-# STEP 7 — COUNTRY-WISE RECOMMENDATIONS
-# =====================================================
-
-TARGET_COUNTRY = "USA"   # change to "USA" or "India"
-
-if TARGET_COUNTRY.lower() == "india":
-    selected_market = india_freq
-elif TARGET_COUNTRY.lower() == "usa":
-    selected_market = usa_freq
-else:
-    print("\nInvalid country selected.")
-    selected_market = None
-
-if selected_market:
-    # Remove user skills
-    market_copy = selected_market.copy()
-    for skill in USER_SKILLS:
-        market_copy.pop(skill, None)
-
-    print("\n==============================")
-    print(f"RECOMMENDED SKILLS FOR {TARGET_COUNTRY.upper()}")
-    print("==============================")
-
-    for i, (skill, count) in enumerate(market_copy.most_common(10), start=1):
-        print(f"{i}. {skill}  (market demand score: {count})")
+    return match_pct, list(missing), emerging
