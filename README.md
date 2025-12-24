@@ -1,100 +1,71 @@
-# Job-Skill-Gap-Analyzer
-Country-aware job skill gap and learning recommendation system
+# 🌍 Skillify — Job Skill Gap Analyzer
 
-An AI-powered, data-driven system that analyzes real-world job market data
-and recommends skills to learn based on regional demand.
+**Skillify** is an AI-powered, role-based skill readiness analyzer that helps students and early professionals understand **how prepared they are for a specific job role** and **which skills they need to learn next**, using **real job market data**.
 
 ---
 
-## Problem Statement
+## 🚀 Problem Statement
 
-Students and early professionals often struggle to decide:
-- Which skills are actually in demand?
-- How does skill demand differ across countries?
-- What should I learn next to stay competitive?
+Many students and fresh graduates face confusion such as:
+- Which skills are actually required for a specific job role?
+- Am I industry-ready for roles like Data Analyst, ML Engineer, or Backend Developer?
+- What should I learn next to improve my chances?
 
-This project solves that problem using real job postings data.
-
----
-
-## Solution Overview
-
-The Job Skill Gap Analyzer:
-- Extracts skill requirements from real job descriptions using NLP
-- Learns market demand separately for different countries
-- Compares market demand with a user's current skill set
-- Recommends missing skills ranked by priority
+Most online advice is generic and not backed by real job market data.
 
 ---
 
-## Key Features
+## 💡 Solution
 
-- Real-world datasets (India & USA job markets)
-- Keyword-based NLP skill extraction
-- Skill gap analysis
-- Country-wise learning recommendations
-- Scalable architecture for adding more countries
-
----
-
-## System Architecture
-
-1. Load job datasets (CSV & JSONL)
-2. Normalize schema across countries
-3. Extract skills from job descriptions (NLP)
-4. Compute market-wise skill demand
-5. Compare with user skills
-6. Generate country-specific recommendations
+Skillify solves this problem by:
+- Analyzing **real job descriptions** from multiple countries
+- Using **Machine Learning (TF-IDF)** to learn role-specific skills
+- Comparing market-required skills with a user’s current skill set
+- Showing **role-wise skill match percentage** and **missing skills**
 
 ---
 
-## Tech Stack
+## ✨ Key Features
 
-- Python
-- Pandas
-- Regular Expressions (NLP)
-- Real job market datasets (Monster, Indeed)
+- 🔍 **Role-Based Skill Analysis**
+- 🌍 **Country-Specific Job Market Insights (India & USA)**
+- 🤖 **ML-driven Skill Learning using TF-IDF**
+- 📊 **Skill Match Percentage for Target Role**
+- 🧠 **Missing Skill Identification**
+- 🎨 **Interactive Streamlit Web Interface**
+- 🧩 **Scalable Architecture (easy to add more roles & countries)**
 
 ---
 
-## How to Run
+## 🏗️ System Architecture
 
-1. Clone the repository:
+1. Load preprocessed job datasets (India & USA)
+2. Normalize job titles into canonical roles
+3. Apply TF-IDF to learn important skills per role
+4. Compare learned role skills with user-provided skills
+5. Calculate skill match percentage
+6. Display missing skills via Streamlit UI
+
+---
+
+## 🛠️ Tech Stack
+
+- **Python**
+- **Pandas**
+- **Scikit-learn**
+- **TF-IDF (NLP)**
+- **Streamlit**
+- **Real Job Market Datasets**
+
+---
+
+## ▶️ How to Run the Project
+
+### 1️⃣ Clone the repository
 ```bash
-git clone <repo-link>
+git clone https://github.com/ARUSHI-RASTOGI18/Job-Skill-Gap-Analyzer.git
 cd Job-Skill-Gap-Analyzer
-```
 
-2. Install dependencies:
-```bash
-pip install pandas
-```
-
-3. Run the analyzer:
-```bash
-python analyzer.py
-```
-
----
-
-## Sample Output
-
-```
-RECOMMENDED SKILLS FOR INDIA
-1. Java
-2. JavaScript
-3. AWS
-4. Git
-```
-
-```
-RECOMMENDED SKILLS FOR USA
-1. Linux
-2. Networking
-3. Windows
-```
-
----
 
 ## Author
 
